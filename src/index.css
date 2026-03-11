@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply antialiased;
+  }
+}
+
+@keyframes rain {
+  0% { transform: translateY(-100vh); }
+  100% { transform: translateY(100vh); }
+}
+
+.rain-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.rain-drop {
+  position: absolute;
+  background: linear-gradient(transparent, rgba(255, 255, 255, 0.6));
+  width: 2px;
+  height: 120px;
+  top: -150px;
+  animation: rain linear infinite;
+  will-change: transform; /* Performance hint for mobile */
+  pointer-events: none;
+}
+
+.glass-panel {
+  @apply bg-white/70 border border-white/20 shadow-xl;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transform: translateZ(0); /* Force GPU acceleration */
+}
+
+/* Simplify effects on mobile to prevent lag */
+@media (max-width: 768px) {
+  .glass-panel {
+    @apply bg-white/90; /* More opaque background, less blur for mobile performance */
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  
+  .rain-drop {
+    height: 80px; /* Shorter drops on mobile */
+    width: 1.5px;
+  }
+}
