@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Eye, EyeOff, BookOpen, CheckCircle2, RotateCcw } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Search, Eye, EyeOff, BookOpen, CheckCircle2, RotateCcw, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface WordEntry {
@@ -8,6 +8,156 @@ interface WordEntry {
   uzbek: string;
   synonym?: string;
 }
+
+// --- Background Scene Components ---
+
+const BackgroundGame = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const snowParticles = useRef<{ x: number, y: number, size: number, speed: number }[]>([]);
+  const frameId = useRef(0);
+  const shovelAngle = useRef(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      // Initialize snow - reduced for mobile performance
+      const particleCount = window.innerWidth < 768 ? 80 : 150;
+      snowParticles.current = Array.from({ length: particleCount }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2 + 1,
+        speed: Math.random() * 1 + 0.5
+      }));
+    };
+    window.addEventListener('resize', resize);
+    resize();
+
+    const animate = (time: number) => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Dark Background
+      ctx.fillStyle = '#050505';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Distant Hills (Darker)
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.moveTo(0, canvas.height * 0.75);
+      ctx.quadraticCurveTo(canvas.width * 0.25, canvas.height * 0.65, canvas.width * 0.5, canvas.height * 0.75);
+      ctx.quadraticCurveTo(canvas.width * 0.75, canvas.height * 0.85, canvas.width, canvas.height * 0.75);
+      ctx.lineTo(canvas.width, canvas.height);
+      ctx.lineTo(0, canvas.height);
+      ctx.fill();
+
+      // Draw Village Houses (Simplified for performance)
+      const drawHouse = (x: number, y: number, scale: number) => {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+        
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(-25, -35, 50, 35);
+        
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.moveTo(-35, -35);
+        ctx.lineTo(0, -60);
+        ctx.lineTo(35, -35);
+        ctx.fill();
+        
+        ctx.fillStyle = '#fef08a'; // Glowing window
+        ctx.fillRect(-10, -20, 8, 8);
+        
+        ctx.restore();
+      };
+
+      if (window.innerWidth > 768) {
+        drawHouse(canvas.width * 0.2, canvas.height * 0.8, 0.8);
+        drawHouse(canvas.width * 0.8, canvas.height * 0.85, 1);
+      }
+      drawHouse(canvas.width * 0.5, canvas.height * 0.7, 0.6);
+
+      // Draw Trees
+      const drawTree = (x: number, y: number, scale: number) => {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+        ctx.fillStyle = '#020617';
+        ctx.beginPath();
+        ctx.moveTo(-15, 0);
+        ctx.lineTo(0, -35);
+        ctx.lineTo(15, 0);
+        ctx.fill();
+        ctx.restore();
+      };
+
+      drawTree(canvas.width * 0.15, canvas.height * 0.85, 1.2);
+      drawTree(canvas.width * 0.85, canvas.height * 0.9, 1.5);
+
+      // Draw Person Shoveling Snow
+      const personX = canvas.width * 0.4;
+      const personY = canvas.height * 0.88;
+      shovelAngle.current = Math.sin(time * 0.003) * 0.5;
+
+      ctx.save();
+      ctx.translate(personX, personY);
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(0, -25); // Torso
+      ctx.moveTo(0, -25); ctx.lineTo(-8, -12); // Arm
+      ctx.moveTo(0, -25); ctx.lineTo(12, -12); // Arm
+      ctx.moveTo(0, 0); ctx.lineTo(-8, 12); // Leg
+      ctx.moveTo(0, 0); ctx.lineTo(8, 12); // Leg
+      ctx.stroke();
+      
+      ctx.fillStyle = '#cbd5e1';
+      ctx.beginPath(); ctx.arc(0, -30, 5, 0, Math.PI * 2); ctx.fill();
+
+      ctx.save();
+      ctx.translate(12, -12);
+      ctx.rotate(shovelAngle.current);
+      ctx.strokeStyle = '#94a3b8';
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(15, 15); ctx.stroke();
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(12, 12, 12, 8);
+      ctx.restore();
+      ctx.restore();
+
+      // Draw Snow Particles
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      snowParticles.current.forEach(p => {
+        p.y += p.speed;
+        p.x += Math.sin(time * 0.001 + p.y * 0.01) * 0.3;
+        if (p.y > canvas.height) p.y = -10;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      frameId.current = requestAnimationFrame(animate);
+    };
+
+    frameId.current = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(frameId.current);
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+
+  return (
+    <div className="game-container">
+      <canvas ref={canvasRef} className="block" />
+    </div>
+  );
+};
 
 const WORD_DATA: WordEntry[] = [
   { id: 1, english: "A", uzbek: "bir", synonym: "One" },
@@ -492,46 +642,10 @@ export default function App() {
     }
   };
 
-  // Generate rain drops - optimized for mobile
-  const rainDrops = useMemo(() => {
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-    const count = isMobile ? 40 : 120; // Fewer drops on mobile for performance
-    
-    return Array.from({ length: count }).map((_, i) => ({
-      id: i,
-      left: `${Math.random() * 100}%`,
-      duration: `${0.4 + Math.random() * 0.8}s`,
-      delay: `${Math.random() * 2}s`,
-      opacity: 0.2 + Math.random() * 0.5,
-    }));
-  }, []);
-
   return (
     <div className="relative min-h-screen text-[#1a1a1a] font-sans selection:bg-emerald-100 overflow-x-hidden">
-      {/* Background Image */}
-      <div 
-        className="fixed inset-0 z-0 bg-cover bg-center bg-fixed transition-transform duration-1000 scale-105"
-        style={{ 
-          backgroundImage: `url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=3540&auto=format&fit=crop')`,
-          filter: 'brightness(0.7) contrast(1.2) saturate(1.2)'
-        }}
-      />
-      
-      {/* Rain Effect */}
-      <div className="rain-container">
-        {rainDrops.map((drop) => (
-          <div
-            key={drop.id}
-            className="rain-drop"
-            style={{
-              left: drop.left,
-              animationDuration: drop.duration,
-              animationDelay: drop.delay,
-              opacity: drop.opacity,
-            }}
-          />
-        ))}
-      </div>
+      {/* Background Game Layer */}
+      <BackgroundGame />
 
       <div className="relative z-10">
         {/* Creator Credit */}
@@ -540,29 +654,29 @@ export default function App() {
         </div>
 
         {/* Header */}
-        <header className="sticky top-0 z-20 bg-white/40 backdrop-blur-xl border-b border-white/20 px-6 py-4">
+        <header className="sticky top-0 z-20 bg-white/10 backdrop-blur-xl border-b border-white/10 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-200">
               <BookOpen size={24} />
             </div>
             <div>
-              <h1 className="text-xl font-semibold tracking-tight">Leksika</h1>
-              <p className="text-xs text-black/40 uppercase tracking-widest font-medium">So'z yodlash yordamchisi</p>
+              <h1 className="text-xl font-semibold tracking-tight text-white drop-shadow-md">Leksika</h1>
+              <p className="text-xs text-white/60 uppercase tracking-widest font-medium drop-shadow-sm">So'z yodlash yordamchisi</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => setHideTranslations(!hideTranslations)}
-              className={`p-2 rounded-xl transition-all ${hideTranslations ? 'bg-emerald-600 text-white shadow-md' : 'bg-black/5 text-black/60 hover:bg-black/10'}`}
+              className={`p-2 rounded-xl transition-all ${hideTranslations ? 'bg-emerald-600 text-white shadow-md' : 'bg-white/10 text-white/60 hover:bg-white/20'}`}
               title={hideTranslations ? "Tarjimalarni ko'rsatish" : "Tarjimalarni yashirish"}
             >
               {hideTranslations ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
             <button
               onClick={resetProgress}
-              className="p-2 rounded-xl bg-black/5 text-black/60 hover:bg-black/10 transition-all"
+              className="p-2 rounded-xl bg-white/10 text-white/60 hover:bg-white/20 transition-all"
               title="Progressni tiklash"
             >
               <RotateCcw size={20} />
@@ -574,46 +688,46 @@ export default function App() {
       <main className="max-w-4xl mx-auto p-6">
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="glass-panel p-4 rounded-2xl">
-            <p className="text-xs text-black/40 uppercase tracking-wider font-bold mb-1">Jami so'zlar</p>
-            <p className="text-2xl font-light">{WORD_DATA.length}</p>
+          <div className="glass-panel p-4 rounded-2xl border-white/10">
+            <p className="text-xs text-white/40 uppercase tracking-wider font-bold mb-1">Jami so'zlar</p>
+            <p className="text-2xl font-light text-white">{WORD_DATA.length}</p>
           </div>
-          <div className="glass-panel p-4 rounded-2xl">
-            <p className="text-xs text-black/40 uppercase tracking-wider font-bold mb-1">Yodlandi</p>
-            <p className="text-2xl font-light text-emerald-700">{learnedIds.size}</p>
+          <div className="glass-panel p-4 rounded-2xl border-white/10">
+            <p className="text-xs text-white/40 uppercase tracking-wider font-bold mb-1">Yodlandi</p>
+            <p className="text-2xl font-light text-emerald-400">{learnedIds.size}</p>
           </div>
-          <div className="glass-panel p-4 rounded-2xl">
-            <p className="text-xs text-black/40 uppercase tracking-wider font-bold mb-1">Qoldi</p>
-            <p className="text-2xl font-light text-orange-600">{WORD_DATA.length - learnedIds.size}</p>
+          <div className="glass-panel p-4 rounded-2xl border-white/10">
+            <p className="text-xs text-white/40 uppercase tracking-wider font-bold mb-1">Qoldi</p>
+            <p className="text-2xl font-light text-orange-400">{WORD_DATA.length - learnedIds.size}</p>
           </div>
-          <div className="glass-panel p-4 rounded-2xl">
-            <p className="text-xs text-black/40 uppercase tracking-wider font-bold mb-1">Progress</p>
-            <p className="text-2xl font-light">{Math.round((learnedIds.size / WORD_DATA.length) * 100)}%</p>
+          <div className="glass-panel p-4 rounded-2xl border-white/10">
+            <p className="text-xs text-white/40 uppercase tracking-wider font-bold mb-1">Progress</p>
+            <p className="text-2xl font-light text-white">{Math.round((learnedIds.size / WORD_DATA.length) * 100)}%</p>
           </div>
         </div>
         
         {/* Search Bar */}
         <div className="relative mb-6">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30" size={20} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={20} />
           <input
             type="text"
             placeholder="Qidirish (bosh harflar bo'yicha)..."
-            className="w-full pl-12 pr-4 py-3 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl shadow-lg focus:ring-2 focus:ring-emerald-500 transition-all outline-none text-base"
+            className="w-full pl-12 pr-4 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-lg focus:ring-2 focus:ring-emerald-500 transition-all outline-none text-base text-white placeholder:text-white/20"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
         {/* Word Table */}
-        <div className="glass-panel rounded-3xl overflow-hidden">
-          <div className="grid grid-cols-[40px_1fr_1fr_60px] bg-black/5 border-b border-white/20 px-6 py-3">
-            <div className="text-[10px] uppercase tracking-widest font-bold text-black/30">#</div>
-            <div className="text-[10px] uppercase tracking-widest font-bold text-black/30">Inglizcha</div>
-            <div className="text-[10px] uppercase tracking-widest font-bold text-black/30">O'zbekcha</div>
-            <div className="text-[10px] uppercase tracking-widest font-bold text-black/30 text-right">Holat</div>
+        <div className="glass-panel rounded-3xl overflow-hidden border-white/10">
+          <div className="grid grid-cols-[40px_1fr_1fr_60px] bg-white/5 border-b border-white/10 px-6 py-3">
+            <div className="text-[10px] uppercase tracking-widest font-bold text-white/30">#</div>
+            <div className="text-[10px] uppercase tracking-widest font-bold text-white/30">Inglizcha</div>
+            <div className="text-[10px] uppercase tracking-widest font-bold text-white/30">O'zbekcha</div>
+            <div className="text-[10px] uppercase tracking-widest font-bold text-white/30 text-right">Holat</div>
           </div>
 
-          <div className="divide-y divide-black/5">
+          <div className="divide-y divide-white/5">
             <AnimatePresence mode="popLayout">
               {filteredWords.map((word, index) => {
                 const isHidden = hideTranslations && !revealedIds.has(word.id);
@@ -627,19 +741,19 @@ export default function App() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     key={word.id}
-                    className={`grid grid-cols-[40px_1fr_1fr_60px] items-center px-6 py-4 hover:bg-black/[0.01] transition-colors group ${isLearned ? 'bg-emerald-50/30' : ''}`}
+                    className={`grid grid-cols-[40px_1fr_1fr_60px] items-center px-6 py-4 hover:bg-white/5 transition-colors group ${isLearned ? 'bg-emerald-500/10' : ''}`}
                   >
-                    <div className="text-xs font-mono text-black/20">{word.id}</div>
-                    <div className={`text-sm font-medium ${isLearned ? 'text-black/40 line-through' : 'text-black'}`}>
+                    <div className="text-xs font-mono text-white/20">{word.id}</div>
+                    <div className={`text-sm font-medium ${isLearned ? 'text-white/30 line-through' : 'text-white'}`}>
                       {word.english}
                       {word.synonym && (
-                        <div className="text-[10px] text-black/40 font-normal italic mt-0.5">
+                        <div className="text-[10px] text-white/30 font-normal italic mt-0.5">
                           Synonym: {word.synonym}
                         </div>
                       )}
                     </div>
                     <div 
-                      className={`text-sm cursor-pointer transition-all duration-300 ${isHidden ? 'blur-md select-none opacity-30' : 'text-black/60'}`}
+                      className={`text-sm cursor-pointer transition-all duration-300 ${isHidden ? 'blur-md select-none opacity-30' : 'text-white/70'}`}
                       onClick={() => hideTranslations && toggleReveal(word.id)}
                     >
                       {word.uzbek}
@@ -647,7 +761,7 @@ export default function App() {
                     <div className="flex justify-end">
                       <button
                         onClick={() => toggleLearned(word.id)}
-                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${isLearned ? 'bg-emerald-100 text-emerald-600' : 'bg-black/5 text-black/20 hover:bg-black/10 hover:text-black/40'}`}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${isLearned ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-white/20 hover:bg-white/10 hover:text-white/40'}`}
                       >
                         <CheckCircle2 size={18} />
                       </button>
@@ -658,7 +772,7 @@ export default function App() {
             </AnimatePresence>
             {filteredWords.length === 0 && (
               <div className="p-12 text-center">
-                <p className="text-black/40 text-sm italic">Hech narsa topilmadi...</p>
+                <p className="text-white/30 text-sm italic">Hech narsa topilmadi...</p>
               </div>
             )}
           </div>
